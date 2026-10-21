@@ -1,0 +1,57 @@
+# US geography for city-by-city discovery.
+# `iso` is the ISO3166-2 code used by the Overpass area lookup.
+# `cities` are ordered by expected MSP / mid-market IT density — the pipeline
+# takes the first N (settings.discovery.tavily.cities_per_state) per state.
+
+states:
+  - {code: AL, iso: US-AL, name: Alabama,       cities: [Birmingham, Huntsville, Montgomery, Mobile, Tuscaloosa, Auburn, Dothan]}
+  - {code: AK, iso: US-AK, name: Alaska,        cities: [Anchorage, Fairbanks, Juneau, Wasilla]}
+  - {code: AZ, iso: US-AZ, name: Arizona,       cities: [Phoenix, Tucson, Scottsdale, Tempe, Mesa, Chandler, Gilbert, Peoria, Flagstaff, Glendale]}
+  - {code: AR, iso: US-AR, name: Arkansas,      cities: [Little Rock, Fayetteville, Bentonville, Rogers, Springdale, Jonesboro]}
+  - {code: CA, iso: US-CA, name: California,    cities: [Los Angeles, San Francisco, San Diego, San Jose, Irvine, Sacramento, Oakland, Pasadena, Costa Mesa, Fresno, Santa Ana, Anaheim, Riverside, Long Beach, Burbank, Santa Monica, Carlsbad, Walnut Creek, San Mateo, Sunnyvale, Torrance, Bakersfield]}
+  - {code: CO, iso: US-CO, name: Colorado,      cities: [Denver, Colorado Springs, Boulder, Fort Collins, Aurora, Lakewood, Centennial, Littleton, Greenwood Village]}
+  - {code: CT, iso: US-CT, name: Connecticut,   cities: [Hartford, Stamford, New Haven, Norwalk, Shelton, Bridgeport, Danbury, Waterbury, Milford]}
+  - {code: DE, iso: US-DE, name: Delaware,      cities: [Wilmington, Newark, Dover, Middletown]}
+  - {code: DC, iso: US-DC, name: District of Columbia, cities: [Washington]}
+  - {code: FL, iso: US-FL, name: Florida,       cities: [Miami, Tampa, Orlando, Jacksonville, Fort Lauderdale, Boca Raton, Sarasota, Naples, West Palm Beach, St. Petersburg, Clearwater, Fort Myers, Melbourne, Gainesville, Tallahassee, Coral Springs, Doral, Pensacola]}
+  - {code: GA, iso: US-GA, name: Georgia,       cities: [Atlanta, Alpharetta, Savannah, Augusta, Marietta, Duluth, Columbus, Roswell, Athens, Macon, Kennesaw, Sandy Springs]}
+  - {code: HI, iso: US-HI, name: Hawaii,        cities: [Honolulu, Kailua-Kona, Pearl City]}
+  - {code: ID, iso: US-ID, name: Idaho,         cities: [Boise, Meridian, Idaho Falls, "Coeur d'Alene", Nampa, Pocatello]}
+  - {code: IL, iso: US-IL, name: Illinois,      cities: [Chicago, Naperville, Schaumburg, Rockford, Peoria, Springfield, Aurora, Joliet, Elgin, Evanston, Oak Brook, Deerfield, Champaign]}
+  - {code: IN, iso: US-IN, name: Indiana,       cities: [Indianapolis, Fort Wayne, Carmel, South Bend, Evansville, Fishers, Bloomington, Noblesville, Lafayette]}
+  - {code: IA, iso: US-IA, name: Iowa,          cities: [Des Moines, Cedar Rapids, Davenport, Iowa City, Ankeny, West Des Moines, Sioux City]}
+  - {code: KS, iso: US-KS, name: Kansas,        cities: [Wichita, Overland Park, Topeka, Lenexa]}
+  - {code: KY, iso: US-KY, name: Kentucky,      cities: [Louisville, Lexington, Covington, Bowling Green]}
+  - {code: LA, iso: US-LA, name: Louisiana,     cities: [New Orleans, Baton Rouge, Shreveport, Lafayette, Metairie]}
+  - {code: ME, iso: US-ME, name: Maine,         cities: [Portland, Bangor, South Portland, Lewiston]}
+  - {code: MD, iso: US-MD, name: Maryland,      cities: [Baltimore, Columbia, Rockville, Annapolis, Bethesda, Frederick, Silver Spring, Hanover, Towson, Gaithersburg, Germantown]}
+  - {code: MA, iso: US-MA, name: Massachusetts, cities: [Boston, Cambridge, Worcester, Waltham, Burlington, Springfield, Quincy, Lowell, Framingham, Newton, Woburn, Andover, Marlborough]}
+  - {code: MI, iso: US-MI, name: Michigan,      cities: [Detroit, Grand Rapids, Ann Arbor, Troy, Lansing, Southfield, Sterling Heights, Livonia, Novi, Kalamazoo, Farmington Hills, Warren]}
+  - {code: MN, iso: US-MN, name: Minnesota,     cities: [Minneapolis, Saint Paul, Bloomington, Eden Prairie, Rochester, Plymouth, Maple Grove, Duluth, St. Cloud, Edina, Minnetonka]}
+  - {code: MS, iso: US-MS, name: Mississippi,   cities: [Jackson, Gulfport, Hattiesburg]}
+  - {code: MO, iso: US-MO, name: Missouri,      cities: [St. Louis, Kansas City, Springfield, Columbia, Chesterfield, Independence, Overland, "O'Fallon"]}
+  - {code: MT, iso: US-MT, name: Montana,       cities: [Billings, Missoula, Bozeman, Great Falls]}
+  - {code: NE, iso: US-NE, name: Nebraska,      cities: [Omaha, Lincoln, Bellevue]}
+  - {code: NV, iso: US-NV, name: Nevada,        cities: [Las Vegas, Reno, Henderson, North Las Vegas, Sparks]}
+  - {code: NH, iso: US-NH, name: New Hampshire, cities: [Manchester, Nashua, Portsmouth, Concord]}
+  - {code: NJ, iso: US-NJ, name: New Jersey,    cities: [Newark, Jersey City, Princeton, Edison, Parsippany, Cherry Hill, Hoboken, Morristown, Mount Laurel, Woodbridge, Paramus, Freehold]}
+  - {code: NM, iso: US-NM, name: New Mexico,    cities: [Albuquerque, Santa Fe, Las Cruces, Rio Rancho]}
+  - {code: NY, iso: US-NY, name: New York,      cities: [New York, Brooklyn, Buffalo, Rochester, Albany, Syracuse, White Plains, Melville, Yonkers, New Rochelle, Hauppauge, Garden City, Long Island City, Poughkeepsie, Ithaca]}
+  - {code: NC, iso: US-NC, name: North Carolina,cities: [Charlotte, Raleigh, Durham, Greensboro, Winston-Salem, Cary, Asheville, Wilmington, Huntersville, Morrisville, Concord, High Point]}
+  - {code: ND, iso: US-ND, name: North Dakota,  cities: [Fargo, Bismarck, Grand Forks]}
+  - {code: OH, iso: US-OH, name: Ohio,          cities: [Columbus, Cleveland, Cincinnati, Dayton, Akron, Toledo, Westerville, Dublin, Independence, Canton, Youngstown, Beachwood]}
+  - {code: OK, iso: US-OK, name: Oklahoma,      cities: [Oklahoma City, Tulsa, Norman, Edmond]}
+  - {code: OR, iso: US-OR, name: Oregon,        cities: [Portland, Beaverton, Eugene, Salem, Bend, Hillsboro]}
+  - {code: PA, iso: US-PA, name: Pennsylvania,  cities: [Philadelphia, Pittsburgh, Allentown, Harrisburg, King of Prussia, Malvern, Bethlehem, Lancaster, Wayne, Conshohocken, Erie, Scranton]}
+  - {code: RI, iso: US-RI, name: Rhode Island,  cities: [Providence, Warwick, Cranston]}
+  - {code: SC, iso: US-SC, name: South Carolina,cities: [Charleston, Columbia, Greenville, Rock Hill, Mount Pleasant]}
+  - {code: SD, iso: US-SD, name: South Dakota,  cities: [Sioux Falls, Rapid City]}
+  - {code: TN, iso: US-TN, name: Tennessee,     cities: [Nashville, Memphis, Knoxville, Chattanooga, Franklin, Brentwood, Murfreesboro, Clarksville, Jackson]}
+  - {code: TX, iso: US-TX, name: Texas,         cities: [Dallas, Houston, Austin, San Antonio, Fort Worth, Plano, Irving, El Paso, Frisco, Richardson, Addison, Sugar Land, The Woodlands, Round Rock, Arlington, Lubbock, McKinney, Katy, Corpus Christi]}
+  - {code: UT, iso: US-UT, name: Utah,          cities: [Salt Lake City, Provo, Lehi, Ogden, Draper, Sandy]}
+  - {code: VT, iso: US-VT, name: Vermont,       cities: [Burlington, South Burlington, Montpelier]}
+  - {code: VA, iso: US-VA, name: Virginia,      cities: [Richmond, Virginia Beach, Arlington, Reston, Norfolk, Chantilly, Alexandria, Herndon, McLean, Fairfax, Roanoke, Charlottesville, Newport News, Tysons]}
+  - {code: WA, iso: US-WA, name: Washington,    cities: [Seattle, Bellevue, Tacoma, Spokane, Redmond, Kirkland, Everett, Renton, Bothell, Vancouver, Olympia, Federal Way]}
+  - {code: WV, iso: US-WV, name: West Virginia, cities: [Charleston, Huntington, Morgantown]}
+  - {code: WI, iso: US-WI, name: Wisconsin,     cities: [Milwaukee, Madison, Green Bay, Brookfield, Appleton, Waukesha, Kenosha, Racine, Eau Claire]}
+  - {code: WY, iso: US-WY, name: Wyoming,       cities: [Cheyenne, Casper, Jackson]}

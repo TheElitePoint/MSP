@@ -1,0 +1,182 @@
+# Decision-maker search targeting — SOP Modules 41, 42, 44.
+#
+# This file holds SEARCH INPUT only. Role classification and acceptance live in
+# pipeline/contacts/roles.py, in Python, deliberately: role_type gates whether a
+# contact is accepted and feeds the access score, and pipeline/llm.py's own rule
+# is that anything affecting scoring or thresholds must be reproducible across
+# runs. Search phrasing is a spend/precision knob, so it belongs here where it
+# can be tuned — the same split config/queries.yaml already uses.
+#
+# COST WARNING: the Sales Navigator actor charges $0.01 per result RETURNED,
+# not per result accepted. Every keyword you add here widens the net and costs
+# money on people who may then be rejected. Widen deliberately.
+#
+# Bands are the SOP Module 25 employee ranges. `unknown` is not an edge case —
+# two thirds of qualified companies have no stated headcount.
+
+bands:
+  # Module 42: first priority Founder/Owner/CEO/President; second COO/CTO/Head of Operations.
+  "11-50":
+    title_keywords:
+      - Founder
+      - Owner
+      - CEO
+      - President
+      - "Chief Executive Officer"
+      - COO
+      - CTO
+      - CIO
+      - Principal
+      - "Managing Director"
+      - "Head of Operations"
+      - "Director of Operations"
+      - "Director of IT Operations"
+      - "Service Delivery Manager"
+      - "Service Desk Manager"
+    seniority_levels: ["Owner/Partner", "CXO", "Vice President", "Director", "Experienced Manager"]
+    functions: ["Operations", "Information Technology", "Entrepreneurship", "Engineering", "Customer Success and Support"]
+
+  # Module 42: first priority CEO/President/COO/CTO; second VP Service Delivery/
+  # VP Managed Services/Director Operations. Module 25 calls this the strongest
+  # initial range, so it gets the widest first-priority coverage.
+  "51-200":
+    title_keywords:
+      - Founder
+      - Owner
+      - CEO
+      - President
+      - COO
+      - CTO
+      - CIO
+      - CISO
+      - "Managing Director"
+      - "VP Operations"
+      - "VP Service Delivery"
+      - "VP Managed Services"
+      - "VP Technology"
+      - "Director of Operations"
+      - "Director of IT Operations"
+      - "Director of Managed Services"
+      - "Director of Service Delivery"
+      - "Service Delivery Manager"
+      - "Service Desk Manager"
+      - "Infrastructure Manager"
+    seniority_levels: ["Owner/Partner", "CXO", "Vice President", "Director", "Experienced Manager"]
+    functions: ["Operations", "Information Technology", "Engineering", "Customer Success and Support", "Entrepreneurship"]
+
+  "201-500":
+    title_keywords:
+      - CEO
+      - President
+      - COO
+      - CTO
+      - CIO
+      - CISO
+      - "VP Operations"
+      - "VP Service Delivery"
+      - "VP Technology"
+      - "Director of Managed Services"
+      - "Director of IT Operations"
+      - "Director of Service Delivery"
+      - "Head of Infrastructure"
+      - "Service Delivery Manager"
+      - "Infrastructure Manager"
+    seniority_levels: ["Owner/Partner", "CXO", "Vice President", "Director", "Experienced Manager"]
+    functions: ["Operations", "Information Technology", "Engineering", "Customer Success and Support"]
+
+  "501-2000":
+    title_keywords:
+      - CIO
+      - CTO
+      - "VP IT Operations"
+      - "VP Infrastructure"
+      - "Head of Infrastructure"
+      - "Enterprise Architect"
+      - "Director of Service Management"
+      - "Operational Resilience"
+    seniority_levels: ["CXO", "Vice President", "Director"]
+    functions: ["Information Technology", "Engineering", "Operations"]
+
+  # Module 42: "senior functional buyer tied to a contained use case" — not the
+  # CEO of a 5,000-person firm, who will not take a first pilot call.
+  "2000+":
+    title_keywords:
+      - "VP IT Operations"
+      - "Director of IT Operations"
+      - "Head of Service Management"
+      - "Head of Infrastructure"
+      - "Technology Risk"
+      - "Operational Resilience"
+    seniority_levels: ["Vice President", "Director"]
+    functions: ["Information Technology", "Operations"]
+
+  # The majority path. Union of the 11-50 and 51-200 priorities, deliberately
+  # NARROWER than "every title in this file": the small-company titles stay
+  # correct up to 201-500, Module 25 names 51-200 the strongest range, and every
+  # extra keyword returns more billable results. Width here is a spend decision.
+  unknown:
+    # Widened (was 12 keywords / 2 functions, returning ~1.5 people per
+    # company). Every added title maps to a role roles.py accepts, so the
+    # extra results are billable-but-usable rather than billable-and-rejected.
+    title_keywords:
+      - Founder
+      - Owner
+      - CEO
+      - President
+      - COO
+      - CTO
+      - CIO
+      - CISO
+      - "Managing Director"
+      - Principal
+      - "VP Operations"
+      - "VP Service Delivery"
+      - "VP Technology"
+      - "Director of IT Operations"
+      - "Director of Managed Services"
+      - "Director of Service Delivery"
+      - "Head of Infrastructure"
+      - "Service Delivery Manager"
+      - "Service Desk Manager"
+      - "Infrastructure Manager"
+    seniority_levels: ["Owner/Partner", "CXO", "Vice President", "Director", "Experienced Manager"]
+    functions: ["Operations", "Information Technology", "Engineering", "Customer Success and Support", "Entrepreneurship"]
+
+# SOP Module 44 "people to avoid". Applied as actor-side exclusions so we do not
+# pay $0.01 to retrieve someone we would reject anyway. roles.py applies the
+# same rules again on the way in — the actor's matching is not ours to trust.
+exclude:
+  title_keywords:
+    - Recruiter
+    - Recruiting
+    - "Talent Acquisition"
+    - Intern
+    - "Business Development"
+    - "Account Executive"
+    - Student
+    - Realtor
+    - Freelance
+  functions:
+    - "Human Resources"
+    - "Sales"
+    - "Marketing"
+    - "Legal"
+    - "Accounting"
+    - "Education"
+    - "Real Estate"
+    - "Arts and Design"
+  seniority_levels: ["Entry Level", "In Training"]
+
+# Off by default. Two reasons: our band is unknown for ~66% of qualified
+# companies so it cannot be applied consistently, and our 501-2000 band has no
+# counterpart in the actor's enum (it splits lossily across 501-1000 and
+# 1001-5000), which silently drops people whenever LinkedIn's own headcount
+# disagrees with our record. Kept here for whoever wants to experiment.
+headcount_filter:
+  enabled: false
+  map:
+    "11-50": ["11-50"]
+    "51-200": ["51-200"]
+    "201-500": ["201-500"]
+    "501-2000": ["501-1000", "1001-5000"]
+    "2000+": ["1001-5000", "5001-10000", "10001+"]

@@ -1,0 +1,25 @@
+# secrets / credentials
+.env
+.env.*
+!.env.example
+keys.txt
+*.json.key
+*service*account*.json
+rosy-spring-*.json
+
+# local data & state
+data/
+logs/
+.spreadsheet-work/
+*.db
+*.db-wal
+*.db-shm
+*.rows.json
+people_today_*
+
+# tooling / environment
+.venv/
+__pycache__/
+*.pyc
+.claude/
+.DS_Store

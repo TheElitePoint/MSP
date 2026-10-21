@@ -1,0 +1,528 @@
+# Query library — SOP Modules 36, 37, 48, 49-52, 54, 55, 58.
+# `scope: state` runs once per state, `scope: city` runs once per city.
+# {city}, {state}, {state_name} are substituted at runtime.
+# `route` (SOP Module 13): "direct" (default, product-label search — Route A)
+# or "reverse_engineered" (hiring/event/ecosystem signals — Route B). Tagged
+# per group so stage_enrich crawls Route B discoveries first — Module 04:
+# reverse engineering "produces better timing and relevance evidence."
+# Treat this as a living asset (Module 36): add phrases that strong companies use.
+
+groups:
+
+  core_managed_it:
+    segment: "Managed technology provider"
+    scope: city
+    queries:
+      - '"managed IT services" {city} {state}'
+      - '"managed service provider" {city} {state}'
+      - '"co-managed IT" {city} {state}'
+      - '"outsourced IT" OR "IT support services" {city} {state}'
+
+  service_desk_and_noc:
+    segment: "Managed technology provider"
+    scope: city
+    queries:
+      - '"24/7 IT support" OR "managed service desk" {city} {state}'
+      - '"network operations center" OR "NOC services" {city} {state}'
+
+  cloud_and_infrastructure:
+    segment: "Managed technology provider"
+    scope: state
+    queries:
+      - '"managed cloud services" OR "cloud operations" {state_name}'
+      - '"managed infrastructure" OR "infrastructure management services" {state_name}'
+      - '"hybrid cloud" AND "managed services" {state_name}'
+
+  managed_security:
+    segment: "Managed technology provider"
+    scope: state
+    queries:
+      - '"managed security service provider" OR "managed cybersecurity" {state_name}'
+      - '"SOC as a service" OR "security operations services" {state_name}'
+
+  continuity:
+    segment: "Managed technology provider"
+    scope: state
+    queries:
+      - '"disaster recovery" AND "managed services" {state_name}'
+      - '"business continuity" AND "IT services" {state_name}'
+
+  healthcare_it:
+    segment: "Healthcare IT environment"
+    scope: state
+    queries:
+      - '("managed IT" OR "managed services") AND healthcare {state_name}'
+      - '"healthcare IT services" HIPAA {state_name}'
+      - '"clinical systems" OR "healthcare technology partner" managed {state_name}'
+
+  financial_it:
+    segment: "Financial organisation"
+    scope: state
+    queries:
+      - '("managed IT" OR "managed services") AND ("credit union" OR banking) {state_name}'
+      - '"core banking" OR "fintech infrastructure" managed services {state_name}'
+      - '"credit union" "IT operations" OR "technology partner" {state_name}'
+
+  # SOP Module 23: target the operating condition, not the provider label —
+  # both original queries here still anchored on "managed services", which
+  # finds MSPs *serving* mid-market companies rather than the regulated
+  # mid-market company itself (Module 18: search for the condition, not the
+  # industry label).
+  regulated_midmarket:
+    segment: "Regulated mid-market IT"
+    scope: state
+    queries:
+      - '"managed services" AND (compliance OR regulated OR resilience) {state_name}'
+      - '"IT operations" AND ("SOC 2" OR HITRUST OR CMMC) {state_name}'
+      - '"Director of IT Operations" OR "VP of IT Operations" {state_name}'
+      - '"in-house IT team" AND (insurance OR manufacturing OR logistics OR "professional services") {state_name}'
+      - '"multiple locations" AND "IT infrastructure" {state_name}'
+      - '"Director of Infrastructure" OR "Head of Technology Operations" {state_name}'
+      - '"operational resilience" OR "technology risk" IT {state_name}'
+
+  # Reverse-engineering routes (SOP Modules 49-51: vendor ecosystem, partner
+  # directories, associations/rankings/awards). These find directories and
+  # member lists rather than single companies — the crawler follows outbound
+  # links. Named vendor programmes and award lists (Module 51: "a ranking is
+  # a discovery source, not proof") rather than generic "top MSP" phrasing.
+  directories_and_associations:
+    segment: "Managed technology provider"
+    scope: state
+    route: reverse_engineered
+    queries:
+      - 'MSP association OR "technology council" member directory {state_name}'
+      - '"top managed service providers" {state_name} list'
+      - '"best IT services company" awards {state_name}'
+      - '"ConnectWise partner" OR "Datto partner" OR "Kaseya partner" {state_name}'
+      - '"MSP 501" OR "CRN MSP" OR "Inc. 5000" managed services {state_name}'
+      - 'CompTIA member "managed service provider" {state_name}'
+      - '"Chamber of Commerce" member "managed IT" OR "technology services" {state_name}'
+      - 'Clutch.co "managed service provider" {state_name}'
+      - '"IT Nation" OR "ASCII Group" member {state_name}'
+      - '"Better Business Bureau" accredited "managed IT services" {state_name}'
+
+  # Hiring/job signals (SOP Module 54). Role-first, market-wide: search for
+  # who is hiring the roles that own the operational problem, rather than
+  # searching for companies and then checking if they happen to be hiring.
+  hiring_intent:
+    segment: "Managed technology provider"
+    scope: state
+    route: reverse_engineered
+    queries:
+      - '"Service Delivery Manager" OR "Service Delivery Director" hiring {state_name}'
+      - '"Managed Services Director" OR "NOC Manager" OR "SOC Manager" job {state_name}'
+      - '"Infrastructure Manager" OR "Cloud Operations Manager" OR "Change Manager" hiring {state_name}'
+      - '"Technical Account Manager" OR "Enterprise Architect" IT job {state_name}'
+      - '"IT Operations Manager" OR "Systems Administrator Lead" hiring {state_name}'
+      - '"Help Desk Manager" OR "Desktop Support Manager" job {state_name}'
+      - '"vCIO" OR "virtual CIO" hiring {state_name}'
+      - '"Client Success Manager" managed IT hiring {state_name}'
+
+  # Acquisition, expansion and transformation signals (SOP Module 55).
+  # Market-wide event language, not a per-company lookup — this is the
+  # discovery-time counterpart to stage_intent's per-company news search:
+  # find companies BECAUSE they show a business-change event, rather than
+  # discovering them by product label and only checking for events afterward.
+  business_change_signals:
+    segment: "Managed technology provider"
+    scope: state
+    route: reverse_engineered
+    queries:
+      - '"managed service provider" ("has acquired" OR "acquisition of" OR "merges with") {state_name}'
+      - '"managed IT" OR "managed services" "appoints" (CTO OR COO OR "Chief Technology Officer") {state_name}'
+      - '"IT services" ("opens new office" OR "expands operations" OR "new location") {state_name}'
+      - '"managed services" ("completes cloud migration" OR "digital transformation" OR modernization) {state_name}'
+      - '"managed IT" OR "managed services" ("secures funding" OR "raises Series" OR "private equity investment") {state_name}'
+      - '"IT services" ("rebrands as" OR "merges to form" OR "combines with") {state_name}'
+      - '"managed service provider" "named to" ("Inc. 5000" OR "fastest growing") {state_name}'
+      - '"managed IT" "celebrates" ("anniversary" OR "milestone") {state_name}'
+
+  # New vertical angles (not covered by core_managed_it/healthcare_it/
+  # financial_it) — genuinely new query text, so untouched by the 14-day
+  # cooldown that's exhausted the original library.
+  vertical_msp:
+    segment: "Managed technology provider"
+    scope: city
+    queries:
+      - '"IT support for law firms" OR "legal IT services" {city} {state}'
+      - '"IT services for manufacturing" OR "industrial IT support" {city} {state}'
+      - '"dental IT support" OR "medical practice IT services" {city} {state}'
+      - '"property management IT services" OR "real estate IT support" {city} {state}'
+      - '"multi-location IT support" OR "retail IT services" {city} {state}'
+      - '"IT support for nonprofits" OR "nonprofit managed IT" {city} {state}'
+      - '"construction IT services" OR "AEC managed IT" {city} {state}'
+
+  # New vendor/technology-stack angles — MSPs self-identify by the platforms
+  # they run, a different search surface than product-label phrasing.
+  vendor_stack_msp:
+    segment: "Managed technology provider"
+    scope: state
+    queries:
+      - '"Microsoft 365 managed services" {state_name}'
+      - '"Azure managed services provider" {state_name}'
+      - '"AWS managed services partner" {state_name}'
+      - '"VoIP" AND "managed services" {state_name}'
+      - '"print and copier managed services" {state_name}'
+      - '"cybersecurity compliance as a service" {state_name}'
+      - '"IT staffing" AND "managed services" {state_name}'
+      - '"unified communications" AND "managed IT" {state_name}'
+
+  # Second wave: partner/certification self-identification (the style that
+  # converted best among the newer groups) plus fresh phrasing of the core
+  # city-level queries (the highest-converting group). New query text, so
+  # untouched by the exact-text cooldown.
+  partner_ecosystem_msp:
+    segment: "Managed technology provider"
+    scope: state
+    queries:
+      - '"Microsoft Solutions Partner" "managed services" {state_name}'
+      - '"Cisco Meraki" "managed services provider" {state_name}'
+      - '"Dell Technologies" partner "managed IT services" {state_name}'
+      - '"VMware" OR "HPE" partner "managed services" {state_name}'
+      - '"Google Workspace" "managed IT services" {state_name}'
+      - '"CrowdStrike" OR "SentinelOne" partner "managed detection and response" {state_name}'
+      - '"Veeam" OR "Datto" "backup and disaster recovery" provider {state_name}'
+      - '"NinjaOne" OR "N-able" OR "Atera" MSP {state_name}'
+      - '"cloud migration" AND "managed services" provider {state_name}'
+      - '"outsourced help desk" OR "help desk outsourcing" {state_name}'
+      - '"fractional CIO" OR "vCIO services" {state_name}'
+      - '"zero trust" AND "managed security" provider {state_name}'
+
+  core_variants:
+    segment: "Managed technology provider"
+    scope: city
+    queries:
+      - '"managed IT provider" OR "IT managed services company" {city} {state}'
+      - '"Microsoft 365" AND "managed IT" {city} {state}'
+      - '"network management" AND "cybersecurity" AND "cloud" IT company {city} {state}'
+      - '"IT outsourcing" small business {city} {state}'
+
+  # Third wave: verticals and vendor partnerships not yet tried. Genuinely
+  # new query text, untouched by the 14-day exact-text cooldown that has the
+  # first two waves fully exhausted as of 2026-09-30.
+  vertical_msp_2:
+    segment: "Managed technology provider"
+    scope: city
+    queries:
+      - '"IT support for accounting firms" OR "CPA firm managed IT" {city} {state}'
+      - '"IT support for insurance agencies" OR "insurance agency managed IT" {city} {state}'
+      - '"hotel IT support" OR "hospitality managed IT" {city} {state}'
+      - '"property management IT" OR "HOA management IT support" {city} {state}'
+      - '"school district IT support" OR "K-12 managed IT services" {city} {state}'
+      - '"veterinary IT support" OR "veterinary practice managed IT" {city} {state}'
+      - '"auto dealership IT support" OR "dealership managed IT" {city} {state}'
+      - '"municipal IT services" OR "government IT support" managed {city} {state}'
+
+  vendor_stack_msp_2:
+    segment: "Managed technology provider"
+    scope: state
+    queries:
+      - '"Kaseya partner" managed services {state_name}'
+      - '"Barracuda MSP" partner {state_name}'
+      - '"SonicWall partner" managed security {state_name}'
+      - '"Huntress partner" managed detection {state_name}'
+      - '"Pax8 partner" managed services {state_name}'
+      - '"ScalePad" OR "Webroot partner" managed IT {state_name}'
+      - '"Ubiquiti partner" OR "Ingram Micro partner" managed IT {state_name}'
+      - '"white label IT services" OR "wholesale managed IT" {state_name}'
+
+# Domains that are directories/aggregators, never the target company itself.
+# Results from these are kept as *discovery sources* but the domain is never
+# saved as a company record.
+aggregator_domains:
+  - clutch.co
+  - upcity.com
+  - goodfirms.co
+  - designrush.com
+  - yelp.com
+  - yellowpages.com
+  - bbb.org
+  - manta.com
+  - crunchbase.com
+  - zoominfo.com
+  - linkedin.com
+  - facebook.com
+  - twitter.com
+  - x.com
+  - instagram.com
+  - youtube.com
+  - indeed.com
+  - glassdoor.com
+  - ziprecruiter.com
+  - simplyhired.com
+  - monster.com
+  - dice.com
+  - builtin.com
+  - g2.com
+  - capterra.com
+  - trustpilot.com
+  - expertise.com
+  - cloudtango.net
+  - techreviewer.co
+  - itfirms.co
+  - sortlist.com
+  - thumbtack.com
+  - angi.com
+  - wikipedia.org
+  - reddit.com
+  - medium.com
+  # --- additional directories / review sites ---
+  - themanifest.com
+  - techbehemoths.com
+  - ispreports.org
+  - goodfirms.com
+  - softwareadvice.com
+  - getapp.com
+  - producthunt.com
+  - owler.com
+  - dnb.com
+  - bizapedia.com
+  - opencorporates.com
+  - buzzfile.com
+  - hoovers.com
+  - datanyze.com
+  - apollo.io
+  - lusha.com
+  - rocketreach.co
+  - signalhire.com
+  - leadiq.com
+  - cybersecurityventures.com
+  # --- job boards ---
+  - jooble.org
+  - joblist.com
+  - lensa.com
+  - theladders.com
+  - careerbuilder.com
+  - snagajob.com
+  - talent.com
+  - jobs.net
+  - workable.com
+  - lever.co
+  - greenhouse.io
+  - smartrecruiters.com
+  - jobcase.com
+  - upwork.com
+  - freelancer.com
+  - clearancejobs.com
+  # --- industry press / associations / vendors ---
+  - solutionsreview.com
+  - msspalert.com
+  - hcinnovationgroup.com
+  - healthcareinnovationgroup.com
+  - crn.com
+  - channelpronetwork.com
+  - technologyadvice.com
+  - itchronicles.com
+  - cybersecuritydive.com
+  - healthcaredive.com
+  - bankingdive.com
+  - ciodive.com
+  - hipaajournal.com
+  - himss.org
+  - aba.com
+  - mspradio.com
+  - msp360.com
+  - channelfutures.com
+  - crn.co.uk
+  - itpro.com
+  - zdnet.com
+  - cio.com
+  - computerworld.com
+  - infoworld.com
+  - networkworld.com
+  - darkreading.com
+  - bleepingcomputer.com
+  - securityweek.com
+  - healthcareitnews.com
+  - beckershospitalreview.com
+  - americanbanker.com
+  - cutimes.com
+  - cuna.org
+  - nasdaq.com
+  - yahoo.com
+  - justia.com
+  - law.com
+  - sec.gov
+  - usa.gov
+  - ibm.com
+  - oracle.com
+  - cisco.com
+  - dell.com
+  - hp.com
+  - vmware.com
+  - salesforce.com
+  - servicenow.com
+  - atlassian.com
+  - datto.com
+  - connectwise.com
+  - kaseya.com
+  - ninjaone.com
+  - sophos.com
+  - fortinet.com
+  - paloaltonetworks.com
+  - crowdstrike.com
+  - nomios.de
+  - uhs.com
+  - forbes.com
+  - inc.com
+  - crn.com
+  - channele2e.com
+  - msp501.com
+  - techtarget.com
+  - gartner.com
+  - reuters.com
+  - bloomberg.com
+  - prnewswire.com
+  - businesswire.com
+  - globenewswire.com
+  - apple.com
+  - google.com
+  - microsoft.com
+  - amazon.com
+  - github.com
+  - mapquest.com
+  - chamberofcommerce.com
+  - alignable.com
+  - houzz.com
+
+# Global enterprises, big tech and the large SI/consulting firms. These are
+# never first-pilot accounts: SOP Module 25 puts 2,000+ headcount at "use only
+# with strong timing, warm access, or a highly contained pilot opportunity",
+# and Module 28 excludes "very large enterprise without timing or access —
+# long cycle and low practicality for the first pilot stage".
+enterprise_domains:
+  # FAANG / big tech
+  - google.com
+  - alphabet.com
+  - meta.com
+  - facebook.com
+  - apple.com
+  - amazon.com
+  - aws.amazon.com
+  - microsoft.com
+  - netflix.com
+  - nvidia.com
+  - tesla.com
+  - openai.com
+  - uber.com
+  - airbnb.com
+  - salesforce.com
+  - adobe.com
+  - intel.com
+  - qualcomm.com
+  - broadcom.com
+  - amd.com
+  # Global system integrators / offshore IT services
+  - cognizant.com
+  - accenture.com
+  - infosys.com
+  - tcs.com
+  - wipro.com
+  - hcltech.com
+  - techmahindra.com
+  - capgemini.com
+  - atos.net
+  - dxc.com
+  - ibm.com
+  - kyndryl.com
+  - fujitsu.com
+  - ntt.com
+  - nttdata.com
+  - genpact.com
+  - mphasis.com
+  - ltimindtree.com
+  - persistent.com
+  - epam.com
+  - globant.com
+  - luxoft.com
+  - unisys.com
+  - cgi.com
+  - sopragroup.com
+  # Big 4 / large consulting
+  - deloitte.com
+  - pwc.com
+  - ey.com
+  - kpmg.com
+  - mckinsey.com
+  - bain.com
+  - bcg.com
+  - accenture.net
+  - guidehouse.com
+  - boozallen.com
+  - leidos.com
+  - saic.com
+  - caci.com
+  - maximus.com
+  - wipfli.com
+  - bdo.com
+  - rsmus.com
+  - crowe.com
+  - grantthornton.com
+  # Large telecom / carrier / hyperscale infrastructure
+  - att.com
+  - verizon.com
+  - lumen.com
+  - centurylink.com
+  - comcast.com
+  - charter.com
+  - t-mobile.com
+  - equinix.com
+  - digitalrealty.com
+  - rackspace.com
+  - hpe.com
+  - dell.com
+  - cisco.com
+  - oracle.com
+  - sap.com
+  - vmware.com
+  - hughes.com
+  # Private equity / asset managers / investment firms
+  - apollo.com
+  - apolloglobal.com
+  - blackstone.com
+  - kkr.com
+  - carlyle.com
+  - tpg.com
+  - baincapital.com
+  - warburgpincus.com
+  - vistaequitypartners.com
+  - thomabravo.com
+  - insightpartners.com
+  - generalatlantic.com
+  - blackrock.com
+  - vanguard.com
+  - fidelity.com
+  - goldmansachs.com
+  - jpmorgan.com
+  - morganstanley.com
+  # Semiconductors / EDA / enterprise hardware
+  - cadence.com
+  - synopsys.com
+  - arm.com
+  - micron.com
+  - ti.com
+  - analog.com
+  - marvell.com
+  - lamresearch.com
+  - appliedmaterials.com
+  # Large facilities / staffing / outsourcing conglomerates
+  - crothall.com
+  - compass-group.com
+  - compassgroup.com
+  - sodexo.com
+  - aramark.com
+  - abm.com
+  - roberthalf.com
+  - manpowergroup.com
+  - adecco.com
+  - randstad.com
+  - kellyservices.com
+  - insightglobal.com
+  # Large government / public-sector consultancies
+  - icf.com
+  - deloittedigital.com
+  - mitre.org
+  - rand.org
+  - gartner.com
+  - forrester.com
+  - idc.com

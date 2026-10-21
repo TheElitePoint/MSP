@@ -1,0 +1,380 @@
+# =============================================================================
+# RUN SWITCHES — this file controls what the pipeline does when you run ./run.py
+# Flip a stage to false to skip it. run.py resumes from the last checkpoint.
+# =============================================================================
+
+run:
+  # Human label for this run; also used in the Excel filename.
+  label: "us-managed-tech"
+  # Stop the whole run after this many minutes (0 = no limit).
+  max_runtime_minutes: 0
+  # Re-crawl companies whose data is older than this many days.
+  refresh_after_days: 365
+
+stages:
+  discover: true        # Overpass (OSM) + Tavily search -> raw company universe
+  apify_discover: true  # LLM-generated fresh queries via Apify rag-web-browser
+  prescreen: true        # Reject obvious non-operators before spending a crawl
+  enrich: true           # Crawl company websites -> services, evidence, contacts
+  intent: true           # Careers + news scan -> timing / intent signals
+  qualify: true          # Exclusion rules + minimum acceptance (SOP Modules 26/28)
+  score: true            # 40/25/20/15 weighted score -> Tier A/B/C (SOP Module 30)
+  llm: true              # Groq: entity second-opinion, rationale, FP challenge
+  clean: true            # Final entity/geo/name verification before export
+  contacts: true         # PHASE 2. Spends Apify Sales Navigator credit ($0.50/search +
+                         # $0.01/result), capped by contacts.max_spend_usd_per_run below.
+  quality: true          # Data-quality gates, link checks, completeness report
+  export: true           # Structured Excel workbook
+
+# --------------------------------------------------------------------------
+# DISCOVERY
+# --------------------------------------------------------------------------
+discovery:
+  # Which geographies to process. "all" = every state in geography.yaml.
+  # Or a list: ["TX", "CA", "NY"]
+  states: all
+  # Stop discovery once this many companies have been newly inserted across
+  # the entire run. This is distinct from the per-state safety cap below.
+  max_new_companies_per_run: 4000
+  # Cap per state so a full 50-state run stays bounded. 0 = uncapped.
+  max_new_companies_per_state: 400
+
+  overpass:
+    enabled: false
+    endpoints:
+      - "https://overpass-api.de/api/interpreter"
+      - "https://overpass.kumi.systems/api/interpreter"
+    timeout_seconds: 180
+    sleep_between_states: 8      # be a good citizen; Overpass is a free service
+    max_retries: 3
+
+  # ATS job boards — structured hiring intent from public, unauthenticated
+  # endpoints (Greenhouse, Lever, Ashby, Workable, SmartRecruiters, Recruitee)
+  # plus schema.org JobPosting. Free, no key. Deliberately does NOT touch
+  # Indeed/Glassdoor/LinkedIn: their terms prohibit scraping.
+  ats:
+    enabled: true
+    timeout_seconds: 20
+    sleep_between_calls: 0.5
+    max_jobs_per_company: 60
+
+  tavily:
+    enabled: true
+    # Hard budget so a 50-state run cannot silently burn your credits.
+    # The 5 original dev keys are all exhausted (HTTP 432) and are skipped by
+    # the dead-key state file. Exactly ONE live key remains, fresh at 1,000
+    # credits, so this cap is the whole month's runway: 750 leaves ~250 in
+    # reserve for news enrichment and a follow-up run.
+    max_calls_per_run: 13000
+    search_depth: "basic"        # "basic" (1 credit) or "advanced" (2 credits)
+    max_results_per_query: 20
+    sleep_between_calls: 0.6
+    # Skip a query if the identical query ran successfully within this window.
+    query_cooldown_days: 14
+    # Cities per state to run city-level queries against (from geography.yaml).
+    # Raised from 4 to 10 (the most any state lists): state-level coverage is
+    # complete and its queries are all inside their cooldown, so city scope is
+    # where the remaining unmined ground is — 126 of 238 city scopes had never
+    # been searched at the time this was raised. Cities already searched are
+    # skipped by the normal query cooldown, so this costs nothing to re-run.
+    cities_per_state: 10
+    # Which query groups from queries.yaml to run. [] = all groups.
+    active_query_groups: []
+    # A key that hits its ~1k credit limit is skipped, not removed from the
+    # pool — it is retried automatically after this many hours (credits can
+    # reset). This only stops a known-dead key from being re-probed at the
+    # start of the very next run; it never drops a key from rotation.
+    dead_key_retry_hours: 24
+    # Learning loop (SOP Module 34: "record which filters produced the
+    # strongest qualified-account rate"). A query group with at least
+    # weak_group_min_sample companies discovered and a qualified rate below
+    # weak_group_threshold_pct gets its cooldown multiplied — it still runs
+    # eventually, just less often, freeing credit for groups that work.
+    # Never disabled outright: a small sample or a one-off bad state should
+    # not permanently silence a group.
+    weak_group_min_sample: 20
+    weak_group_threshold_pct: 5.0
+    weak_group_cooldown_multiplier: 3
+
+  # LLM-generated fresh queries (see pipeline/llm_tasks.py:generate_fresh_queries),
+  # scraped via Apify's rag-web-browser actor — one call does search + full-page
+  # scrape. Query text varies every run (deliberately), which sidesteps the
+  # exact-text query_cooldown that limits the static library above once a
+  # geography is well-mined. Nationwide by design, not per-state.
+  apify:
+    # Enabled to source genuinely new companies once static-query cooldown
+    # exhausted the Tavily route. Competes for the same Apify spend as the
+    # `contacts:` block, so watch the run summary for actual cost.
+    enabled: false
+    # Apify is compute-unit billed per full-page scrape, not a flat per-call
+    # credit like Tavily — each call here scrapes max_results_per_query full
+    # pages, not one snippet. Keep this conservative; raise only after
+    # watching actual cost in the Apify console for a few runs.
+    max_calls_per_run: 25
+    # How many fresh LLM-generated queries this stage runs per pipeline run.
+    queries_per_run: 15
+    # Pages scraped per query (maps to the actor's `maxResults` input).
+    max_results_per_query: 8
+    output_formats: ["markdown"]
+    request_timeout_seconds: 300   # rag-web-browser's own sync-endpoint ceiling
+    sleep_between_calls: 1.0
+    # Skip an (near-)identical query text if it ran successfully within this
+    # window. LLM phrasing varies run-to-run, so this mostly guards against
+    # same-day re-runs rather than doing the heavy lifting Tavily's cooldown does.
+    query_cooldown_days: 14
+    dead_key_retry_hours: 24
+
+# --------------------------------------------------------------------------
+# DECISION-MAKER MAPPING (SOP Modules 40-44)
+# Runs after `clean`, over approved Tier A accounts only — SOP Module 31's work
+# order step 4: "Map decision-makers for approved Tier A accounts."
+#
+# COST: this is the only stage billed per item. Apify's Sales Navigator actor
+# charges $0.50 per search PLUS $0.01 per person returned. Searches cover up to
+# 10 companies at once, which is what makes it affordable: ~$27 for 210
+# accounts batched, ~$113 unbatched. `max_results_per_search` is the expensive
+# knob — you pay per person RETURNED, not per person kept.
+# --------------------------------------------------------------------------
+contacts:
+  enabled: true
+  # Hard stops. Both are checked BEFORE a request is sent, never after.
+  # Sized to the Apify account, not to the workload: the token on this account
+  # is a FREE plan with $5 of monthly usage credit total. At ~$1.10 per batch
+  # of 10 companies that is roughly 4 searches / 40 accounts a month, so the
+  # cap is deliberately below the plan ceiling rather than near it. Raise both
+  # of these together only after the plan is upgraded.
+  max_searches_per_run: 8
+  max_spend_usd_per_run: 4.8
+  max_results_per_search: 150     # the actor's `limit` — the real cost driver (raised to allow 4-10 people per company)
+  over_fetch: 1.5                 # limit = depth x batch x over_fetch
+  batch_size: 10                  # actor maximum for current_company_names
+  # Off: the widened filter lists plus these exclusion lists exceed the actor's
+  # payload ceiling (returns empty, still bills $0.50). roles.py re-applies them.
+  actor_side_exclusions: false
+  max_passes_per_run: 2
+  request_timeout_seconds: 300
+  sleep_between_calls: 1.0
+  dead_key_retry_hours: 24
+  # async request_id flow: the actor's own message says results are ready
+  # "after 5-10 minutes" — 6x10s (60s) was giving up long before that and
+  # silently returning zero people. 40x15s covers up to 10 minutes.
+  poll_max_attempts: 40
+  poll_sleep_seconds: 15
+  # Cross-run spend guard. Without this every run re-buys a $0.50 search for
+  # the same company forever, since checkpoints reset per run_id.
+  search_cooldown_days: 90
+
+  gate:
+    statuses: [approved]
+    # Tier A supply is exhausted for this cycle (90-day search cooldown);
+    # widened to B to keep sourcing legitimate decision-makers from approved
+    # accounts. Depth already scales down for B (see depth: below).
+    tiers: [A, B, C]
+    require_clean_verified: true  # never buy contacts for an unverified entity
+    require_linkedin_url: true    # skip companies with no LinkedIn page: they return ~nobody but still cost a search fee
+
+  # SOP Module 31 research depth by tier.
+  depth: {A: 10, B: 8, C: 6}
+  min_depth: 4
+
+  # US-ONLY (hard requirement), layer 1 of 2. Layer 2 re-checks every returned
+  # `location` string in pipeline/contacts/us_geo.py — a filter applied by a
+  # third party on a paid call is not trusted as the only control.
+  #
+  # !! UNVERIFIED: 103644278 is the widely-cited LinkedIn geo URN for the
+  # United States but has NOT been confirmed against this actor. Before the
+  # first batch run, do the A/B in the plan: one search WITH this filter and
+  # one WITHOUT, and confirm the unfiltered one returns non-US people. Record
+  # the outcome here.       verified: (not yet)
+  geo_codes: [103644278]
+  require_geo_codes: true         # refuse to run a worldwide search by accident
+  us_policy: strict               # accept only confirmed-US locations
+
+  # Attribution thresholds (pipeline/contacts/mapping.py). The margin is the
+  # important one: if two companies in a batch both look like a match for a
+  # returned person, neither wins and the person is dropped.
+  company_match_min_ratio: 93
+  company_match_min_margin: 8
+
+  consultant_policy: review       # review | reject
+  llm_relevance: true             # one Groq call per company for "reason selected"
+
+# --------------------------------------------------------------------------
+# PRESCREEN — reject obvious non-operators before spending a crawl
+# (SOP Module 31 work order: quick-screen exclusions before full validation)
+# --------------------------------------------------------------------------
+prescreen:
+  enabled: true
+  # Confidence bar for acting on just the discovery-time search snippet.
+  # Validated against real production data (see prescreen.py): 0.97 catches
+  # the same unambiguous cases as a looser bar while producing zero false
+  # positives against confirmed real operators. Do not lower this without
+  # re-validating — a false screen-out here is much harder to notice than a
+  # post-crawl one, since the company is never crawled to prove otherwise.
+  min_confidence: 0.97
+
+# --------------------------------------------------------------------------
+# ENRICHMENT (website crawl)
+# --------------------------------------------------------------------------
+enrich:
+  enabled_pages: [home, services, about, industries, careers, contact, case_studies]
+  max_pages_per_site: 12
+  request_timeout: 20
+  sleep_between_requests: 1.0
+  max_workers: 6
+  respect_robots_txt: true
+  # Conventional "compatible" form: still honestly identifies as a bot (the way
+  # Googlebot/bingbot do), but is not rejected by naive User-Agent filters.
+  # Replace the contact URL with a real one before running at scale.
+  user_agent: "Mozilla/5.0 (compatible; ManageITServicesResearchBot/1.0; +https://example.com/bot)"
+
+# --------------------------------------------------------------------------
+# INTENT / TIMING SIGNALS
+# --------------------------------------------------------------------------
+intent:
+  # Scan the company's own careers page for operational-role hiring.
+  scan_careers: true
+  # Use Tavily to look for acquisition / expansion / migration news.
+  news_search: true
+  # Only spend news-search credits on companies already scoring above this.
+  news_search_min_base_score: 45
+  news_lookback_days: 365
+  max_news_companies_per_run: 300
+  # Cross-run spend guard: do not re-search a company that already had a
+  # paid news search within this window, even on a brand-new run_id.
+  news_search_cooldown_days: 21
+
+# --------------------------------------------------------------------------
+# QUALIFICATION (SOP Modules 25, 26, 28)
+# --------------------------------------------------------------------------
+qualify:
+  # Current campaign gate: work only confirmed 30+ employee companies.
+  headcount_min: 30
+  headcount_max: 5000
+  # Re-enabled: strict false was blocking ~40% of genuinely valid MSPs found
+  # by the broadened vertical/vendor queries, since smaller regional
+  # operators often don't publish headcount. Unknown size now flows through
+  # to review/approved on other signals instead of an automatic block.
+  allow_unknown_headcount: true
+  require_working_website: true
+  require_us_location: true
+  # A company must show at least this many recurring-service signals to pass.
+  min_recurring_signals: 1
+  # A company must show at least this many operational-responsibility signals.
+  min_operational_signals: 1
+
+# --------------------------------------------------------------------------
+# SCORING (SOP Module 30 weights)
+# --------------------------------------------------------------------------
+scoring:
+  weights:
+    ideal_company_fit: 40
+    operational_need: 25
+    timing_signals: 20
+    decision_maker_access: 15
+  tiers:
+    # SOP Module 30's published band is 75-100 for Tier A. Held there
+    # deliberately: this is also the gate for paid decision-maker mapping
+    # (see contacts.gate), so the threshold now decides where money is spent,
+    # not just which rows reach the workbook.
+    A: 75
+    B: 55
+    C: 35
+    # below C -> Exclude
+
+# --------------------------------------------------------------------------
+# LLM (Groq) — assistance only, never proof (SOP Modules 29 / 59)
+# --------------------------------------------------------------------------
+llm:
+  enabled: true
+  max_calls_per_run: 1500
+  timeout_seconds: 45
+  sleep_between_calls: 0.2
+  max_input_chars: 12000
+  temperature: 0.0
+  models:
+    # Groq retired both Llama chat models — they 404 now. Replacements below
+    # verified live against all 11 keys with response_format=json_object.
+    fast: "openai/gpt-oss-20b"            # names, rationales — high volume
+    reasoning: "openai/gpt-oss-120b"      # classification, challenge
+  # gpt-oss models burn part of max_tokens on hidden reasoning before writing
+  # JSON content. At default effort that hit 600-700+ tokens on some prompts,
+  # exceeding every max_tokens budget below and making Groq return 400
+  # json_validate_failed instead of a truncation warning — this caused a
+  # near-100% LLM stage failure for two hours on 2026-08-20. "low" cuts
+  # reasoning to ~15-20 tokens with no observed quality loss on these
+  # short-JSON classification tasks. Verified live before shipping.
+  reasoning_effort: "low"
+  tasks:
+    # Second opinion on entity type. Gated to records where it changes the
+    # outcome: low deterministic confidence, or a would-be approval.
+    verify_entity: true
+    verify_entity_max_confidence: 0.6   # skip when the lexicon is already sure
+    # Module 63 rationale in prose for accounts that will be worked.
+    write_rationale: false
+    rationale_min_score: 55             # Tier B and above
+    # Module 61 false-positive challenge before a Tier A approval.
+    challenge_tier_a: false
+  max_companies_per_task: 1500
+
+# --------------------------------------------------------------------------
+# CLEANING — final verification pass before export
+# --------------------------------------------------------------------------
+clean:
+  # Drop anything that is not a managed-service operator (software vendors,
+  # directories, associations, end-user orgs outside the end-user segments).
+  enforce_entity_type: true
+  # Drop organisations identified as non-US.
+  enforce_us_only: true
+  # Keep records whose entity type could not be determined, flagged for review.
+  allow_unknown_entity: true
+  # Drop global enterprises and big tech (FAANG, Accenture/Cognizant-class
+  # SIs, Big 4). SOP Module 28: long cycle, low first-pilot practicality.
+  exclude_large_enterprise: true
+
+# --------------------------------------------------------------------------
+# QUALITY GATES — run fails loudly if the output is below standard
+# --------------------------------------------------------------------------
+quality:
+  min_completeness_pct: 70       # required tracker fields populated
+  verify_links: true
+  link_check_sample: 250
+  max_duplicate_rate_pct: 2.0
+  fuzzy_name_match_threshold: 92 # rapidfuzz ratio for near-duplicate names
+
+# --------------------------------------------------------------------------
+# EXPORT
+# --------------------------------------------------------------------------
+export:
+  # master = one accumulating two-sheet tracker (Companies + Key_Contacts),
+  #          rebuilt from the database each run at a stable filename.
+  # legacy = the previous per-run multi-sheet workbook plus the separate
+  #          new-companies file. Kept as a one-line rollback, and as the way to
+  #          get the Evidence/Signals/Excluded/Run_Report sheets on demand.
+  # both   = write both.
+  mode: master
+  master_dir: "data/exports"
+  master_filename: "master_{label}.xlsx"
+  output_dir: "data/exports"
+  # Write each run into data/exports/YYYY-MM-DD/
+  date_folders: true
+  # Export ONLY records that passed the clean stage. This is what makes the
+  # workbook the final artefact rather than a mid-pipeline snapshot.
+  verified_only: true
+  # Only these statuses reach the main Companies sheet.
+  include_statuses: [approved, review]
+  # Only Tier A (score >= 75, see scoring.tiers.A above) reaches the export.
+  # B/C-tier companies stay in the database, just not in this workbook.
+  include_tiers: [A]
+  freeze_header: true
+  autofilter: true
+  # A second "New_This_Run" sheet, same columns as Companies, filtered to
+  # first_seen_run == this run's id. The main Companies sheet stays the full
+  # cumulative tracker (by design — an approved account shouldn't vanish just
+  # because a day passed); this sheet is how a daily run surfaces what's
+  # actually new without the reader having to diff spreadsheets by hand.
+  new_this_run_sheet: true
+  # A second, standalone workbook (new_companies_*.xlsx) containing ONLY
+  # first_seen_run == this run's companies — nothing cumulative, so it's
+  # safe to hand off as "today's new companies" without a repeat in it.
+  new_companies_workbook: true
